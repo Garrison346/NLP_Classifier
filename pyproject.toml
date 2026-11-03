@@ -1,0 +1,28 @@
+[project]
+name = "nlp-classifier"
+version = "0.1.0"
+description = """This project focuses on developing an NLP-based chatbot using 
+            statistical and traditional machine-learning techniques. The goal is to 
+            build a system capable of understanding user input, classifying document 
+            themes, and answering questions about uploaded documents."""
+readme = "README.md"
+authors = [
+    { name = "Garrison"}
+]
+requires-python = ">=3.13"
+dependencies = [
+    "joblib>=1.6.0",
+    "nltk>=3.10.4",
+    "numpy>=2.5.4",
+    "pandas>=3.1.0",
+    "pypdf>=6.21.4",
+    "scikit-learn>=1.9.1",
+    "streamlit>=1.66.1",
+]
+
+[project.scripts]
+nlp-classifier = "nlp_classifier:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
