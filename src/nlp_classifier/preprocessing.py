@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from functools import lru_cache
 
 from nltk.corpus import stopwords
 
@@ -32,8 +33,11 @@ NEGATION_WORDS = {
     "shan't",
 }
 
-# Load English stopwords once when the module is imported.
-STOP_WORDS = set(stopwords.words("english")) - NEGATION_WORDS
+
+@lru_cache
+def get_stop_words() -> frozenset[str]:
+    """Load English stopwords on first use, keeping negation words."""
+    return frozenset(stopwords.words("english")) - NEGATION_WORDS
 
 
 # Recognize dates before general numbers so dates remain single tokens.
@@ -118,9 +122,11 @@ def remove_stopwords(tokens: list[str]) -> list[str]:
     Returns:
         A list with stopwords removed.
     """
+    stop_words = get_stop_words()
+
     return [
         token for token in tokens
-        if token not in STOP_WORDS
+        if token not in stop_words
     ]
 
 

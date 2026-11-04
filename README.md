@@ -28,6 +28,26 @@ Rather than relying entirely on pretrained language models or LLMs, this project
 | Streamlit | Future chatbot user interface |
 | uv | Python package and project management |
 
+## Setup
+
+Install the project and its dependencies:
+
+```bash
+uv sync
+```
+
+Download the NLTK stopword data, which is required for stopword removal and its tests:
+
+```bash
+uv run python -m nltk.downloader stopwords
+```
+
+Run the tests:
+
+```bash
+uv run pytest
+```
+
 ## Project Structure
 
 ```text

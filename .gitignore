@@ -51,3 +51,9 @@ desktop.ini
 .ruff_cache/
 .mypy_cache/
 .pyright/
+
+# Local documents, which may be private or copyrighted
+data/documents/
+
+# Streamlit secrets
+.streamlit/secrets.toml

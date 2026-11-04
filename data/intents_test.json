@@ -1,0 +1,146 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": [
+        "Hey there, good to see you",
+        "hello hello",
+        "Hi, are you online?",
+        "Good day to you",
+        "heya",
+        "Afternoon!",
+        "Hey what's going on",
+        "Hello, is this the document assistant?",
+        "hi how are you",
+        "wassup",
+        "Hey friend",
+        "Evening, hope all is well",
+        "Hello, pleased to meet you",
+        "Hi! I've just opened the app",
+        "oh hey"
+      ]
+    },
+    {
+      "tag": "goodbye",
+      "patterns": [
+        "Okay, bye for now",
+        "I'm signing off",
+        "That's everything, goodbye",
+        "see you around",
+        "gtg",
+        "Have a nice day",
+        "I'll talk to you another time",
+        "Night!",
+        "We're done, you can close this",
+        "I need to get going",
+        "cya",
+        "Peace out",
+        "I'm leaving for the day",
+        "Speak soon",
+        "Time to call it a day"
+      ]
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "Thank you kindly",
+        "thanks so much!",
+        "That's very kind of you",
+        "You're a lifesaver",
+        "Brilliant, thanks",
+        "thank u",
+        "Really appreciate your help",
+        "That answer was great",
+        "You've helped me a lot",
+        "Fantastic work",
+        "I owe you one",
+        "Super useful, thank you",
+        "thanks buddy",
+        "Well done",
+        "This is exactly what I was looking for"
+      ]
+    },
+    {
+      "tag": "help",
+      "patterns": [
+        "Can you help me?",
+        "What do you do exactly?",
+        "I could use a hand",
+        "How do I upload a file?",
+        "What commands are there?",
+        "Is there a user guide?",
+        "I'm lost",
+        "What are you capable of?",
+        "Explain what this tool does",
+        "Can you handle Word documents?",
+        "show me what you can do",
+        "help please",
+        "Where do I start?",
+        "Are there any tutorials?",
+        "what options do i have"
+      ]
+    },
+    {
+      "tag": "classify_document",
+      "patterns": [
+        "What type of document is this?",
+        "Classify this PDF for me",
+        "Which category fits this article best?",
+        "What's the topic of this report?",
+        "Is this report about health or education?",
+        "Assign a label to this document",
+        "What subject is this paper on?",
+        "tell me the theme of this file",
+        "Put this contract in the right category",
+        "what kind of text is this",
+        "Is this essay mostly about history?",
+        "Detect the topic of the upload",
+        "How would you categorize this paper?",
+        "Group this article under a subject",
+        "What's this text generally about?"
+      ]
+    },
+    {
+      "tag": "ask_document_question",
+      "patterns": [
+        "How much profit did they make last year?",
+        "Who is the author of the study?",
+        "What does section 4 say about insurance?",
+        "When was this agreement signed?",
+        "Find the total amount due on the invoice",
+        "What's the interest rate in the loan agreement?",
+        "Does it say anything about remote work?",
+        "Which countries are mentioned?",
+        "What were the main findings?",
+        "where is the office address in this file",
+        "How long is the warranty period?",
+        "What does the report recommend?",
+        "Who approved the budget?",
+        "Give me the sentence about vacation days",
+        "How many pages mention taxes?"
+      ]
+    }
+  ],
+  "out_of_scope": [
+    "What time is it?",
+    "Recommend a good movie",
+    "Who is the president of Brazil?",
+    "Set an alarm for 7am",
+    "Write me a poem",
+    "How tall is Mount Everest?",
+    "I like turtles",
+    "Turn off the lights",
+    "What should I eat for dinner?",
+    "Send an email to my boss",
+    "Is it going to rain tomorrow?",
+    "Sing a song",
+    "zxcvb qwerty",
+    "What's 12 times 12?",
+    "Do you like cats?",
+    "Buy me some shoes",
+    "The traffic was terrible today",
+    "How do I bake bread?",
+    "Call my mom",
+    "Who painted the Mona Lisa?"
+  ]
+}
