@@ -1,0 +1,25 @@
+{
+  "intents": [
+    {
+      "tag": "classify_document",
+      "patterns": [
+        "What is the attached file about?",
+        "What is this article about?"
+      ]
+    },
+    {
+      "tag": "ask_document_question",
+      "patterns": [
+        "How many pages are in this document?",
+        "Where in this document is the thesis statement?"
+      ]
+    },
+    {
+      "tag": "summarize_document",
+      "patterns": [
+        "Can you summarize this document for me?"
+      ]
+    }
+  ],
+  "out_of_scope": []
+}

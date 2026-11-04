@@ -31,6 +31,7 @@ from nlp_classifier.preprocessing import normalize_text, preprocess_text
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 INTENTS_PATH = PROJECT_ROOT / "data" / "intents.json"
 TEST_INTENTS_PATH = PROJECT_ROOT / "data" / "intents_test.json"
+USER_TEST_INTENTS_PATH = PROJECT_ROOT / "data" / "intents_user_test.json"
 MODEL_PATH = PROJECT_ROOT / "models" / "intent_classifier.joblib"
 
 # Returned when the model is not confident enough in any known intent.
@@ -47,10 +48,18 @@ LOGISTIC_REGRESSION_C = 10
 
 @dataclass(frozen=True)
 class IntentPrediction:
-    """A predicted intent and the model's confidence in its top choice."""
+    """
+    A predicted intent and the details behind it.
+
+    Attributes:
+        intent: The accepted intent, or UNKNOWN_INTENT if confidence is low.
+        confidence: The model's confidence in its top guess.
+        top_guess: The model's most likely intent, even if it was not accepted.
+    """
 
     intent: str
     confidence: float
+    top_guess: str
 
 
 def load_intents(path: Path = INTENTS_PATH) -> tuple[list[str], list[str]]:
@@ -222,11 +231,12 @@ def predict_intent(
     probabilities = model.predict_proba([text])[0]
     best_index = probabilities.argmax()
     confidence = float(probabilities[best_index])
+    top_guess = str(model.classes_[best_index])
 
     if confidence < threshold:
-        return IntentPrediction(UNKNOWN_INTENT, confidence)
+        return IntentPrediction(UNKNOWN_INTENT, confidence, top_guess)
 
-    return IntentPrediction(str(model.classes_[best_index]), confidence)
+    return IntentPrediction(top_guess, confidence, top_guess)
 
 
 def evaluate_on_test_set(
@@ -253,6 +263,7 @@ def evaluate_on_test_set(
         - correct_when_answered: answered messages with the right intent.
         - correct_overall: in-scope messages answered with the right intent.
         - out_of_scope_rejected: out-of-scope messages returned as unknown.
+          Left out if the test file has no out-of-scope messages.
     """
     texts, labels = load_intents(path)
     out_of_scope = json.loads(Path(path).read_text(encoding="utf-8"))["out_of_scope"]
@@ -268,13 +279,17 @@ def evaluate_on_test_set(
         for text in out_of_scope
     )
 
-    return {
+    scores = {
         "accuracy_without_threshold": sum(correct) / len(texts),
         "answered": sum(answered) / len(texts),
         "correct_when_answered": correct_and_answered / max(sum(answered), 1),
         "correct_overall": correct_and_answered / len(texts),
-        "out_of_scope_rejected": rejected / len(out_of_scope),
     }
+
+    if out_of_scope:
+        scores["out_of_scope_rejected"] = rejected / len(out_of_scope)
+
+    return scores
 
 
 def save_model(model: Pipeline, path: Path = MODEL_PATH) -> None:
@@ -306,9 +321,14 @@ def main() -> None:
 
     model = train_model(texts, labels)
 
-    print(f"\nHeld-out test set (threshold {CONFIDENCE_THRESHOLD}):")
-    for name, score in evaluate_on_test_set(model).items():
-        print(f"  {name}: {score:.1%}")
+    test_sets = {
+        "Held-out test set": TEST_INTENTS_PATH,
+        "User-written test set": USER_TEST_INTENTS_PATH,
+    }
+    for title, path in test_sets.items():
+        print(f"\n{title} (threshold {CONFIDENCE_THRESHOLD}):")
+        for name, score in evaluate_on_test_set(model, path).items():
+            print(f"  {name}: {score:.1%}")
 
     save_model(model)
     print(f"\nSaved final model to {MODEL_PATH}")

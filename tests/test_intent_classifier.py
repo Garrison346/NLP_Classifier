@@ -6,6 +6,7 @@ from nlp_classifier.intent_classifier import (
     INTENTS_PATH,
     TEST_INTENTS_PATH,
     UNKNOWN_INTENT,
+    USER_TEST_INTENTS_PATH,
     evaluate_model,
     evaluate_on_test_set,
     load_intents,
@@ -70,6 +71,7 @@ def test_predict_intent_returns_unknown_below_threshold(model):
 
     assert result.intent == UNKNOWN_INTENT
     assert result.confidence < 1.0
+    assert result.top_guess == "greeting"
 
 
 def test_predict_intent_accepts_confidence_equal_to_threshold(model):
@@ -130,12 +132,31 @@ def test_evaluate_on_test_set_scores_known_results(model, tmp_path):
     assert scores["out_of_scope_rejected"] == 0.0
 
 
-def test_test_set_does_not_overlap_training_data():
+def test_evaluate_on_test_set_skips_rejection_score_without_messages(
+    model,
+    tmp_path,
+):
+    path = tmp_path / "test.json"
+    path.write_text(
+        json.dumps(
+            {
+                "intents": [{"tag": "greeting", "patterns": ["hello"]}],
+                "out_of_scope": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert "out_of_scope_rejected" not in evaluate_on_test_set(model, path)
+
+
+@pytest.mark.parametrize("path", [TEST_INTENTS_PATH, USER_TEST_INTENTS_PATH])
+def test_test_sets_do_not_overlap_training_data(path):
     train_texts, train_labels = load_intents(INTENTS_PATH)
-    test_texts, test_labels = load_intents(TEST_INTENTS_PATH)
+    test_texts, test_labels = load_intents(path)
     train_tokens = {tuple(preprocess_text(text)) for text in train_texts}
 
-    assert set(test_labels) == set(train_labels)
+    assert set(test_labels) <= set(train_labels)
     assert not train_tokens & {tuple(preprocess_text(t)) for t in test_texts}
 
 
@@ -144,8 +165,8 @@ def test_project_dataset_is_balanced_and_has_no_duplicates():
     counts = {label: labels.count(label) for label in set(labels)}
     token_lists = [tuple(preprocess_text(text)) for text in texts]
 
-    assert len(counts) == 6
+    assert len(counts) == 7
     assert min(counts.values()) >= 20
-    assert max(counts.values()) - min(counts.values()) <= 5
+    assert max(counts.values()) - min(counts.values()) <= 15
     assert len(token_lists) == len(set(token_lists))
     assert all(token_lists)

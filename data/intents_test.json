@@ -119,6 +119,26 @@
         "Give me the sentence about vacation days",
         "How many pages mention taxes?"
       ]
+    },
+    {
+      "tag": "summarize_document",
+      "patterns": [
+        "Summarize this PDF please",
+        "Give me a summary of the report",
+        "summarise the attached file",
+        "Can I get a quick summary?",
+        "What are the key points of this article?",
+        "Boil this report down to a few sentences",
+        "tl;dr this document",
+        "Give me the short version of this file",
+        "I need an overview of this paper",
+        "Condense this document for me",
+        "What's the gist of this article?",
+        "Shorten this text to one paragraph",
+        "Recap the document",
+        "Sum up the main ideas in this PDF",
+        "Make this report shorter"
+      ]
     }
   ],
   "out_of_scope": [

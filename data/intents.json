@@ -232,7 +232,7 @@
         "What services do you offer?"
       ],
       "responses": [
-        "I can identify the main theme of a document and answer questions about its contents. Upload a document to get started."
+        "Right now I can chat and recognize what you're asking for. Identifying a document's theme, summarizing it, and answering questions about its contents are coming soon."
       ]
     },
     {
@@ -287,7 +287,22 @@
         "Run topic classification on this file",
         "Which label best describes this report?",
         "Find the theme of the uploaded document",
-        "What domain does this text come from?"
+        "What domain does this text come from?",
+        "Tell me what this file is about",
+        "What's the attached report about?",
+        "Attached is a document, please classify it",
+        "What is the topic of the attached PDF?",
+        "Which theme does this document fall under?",
+        "Which subject does this document deal with?",
+        "Is this document about law or finance?",
+        "Which category would this PDF go in?",
+        "In general, what does this file cover?",
+        "Tell me the subject of this document",
+        "What type of file did I attach?",
+        "Any idea what subject this PDF covers?",
+        "Can you tell me the theme of the attached document?",
+        "Please label this file",
+        "Which area does this document relate to?"
       ]
     },
     {
@@ -342,7 +357,77 @@
         "Can you find the customer's name?",
         "Look for any mention of penalties",
         "What happened in the third quarter?",
-        "According to the paper, what causes the disease?"
+        "According to the paper, what causes the disease?",
+        "How many chapters does this document have?",
+        "Where does this document mention the deadline?",
+        "What does this document say about refunds?",
+        "Does this PDF list a contact email?",
+        "Who signed this document?",
+        "What page of this file discusses salaries?",
+        "How many sections are in the attached PDF?",
+        "In this document, what is the main argument?",
+        "Find the introduction in this document",
+        "What date appears on this document?",
+        "Which paragraph in this file covers safety?",
+        "What does the attached document say about shipping?",
+        "Is the word contract in this PDF?",
+        "How long is this document?",
+        "What is the last sentence of this file?"
+      ]
+    },
+    {
+      "tag": "summarize_document",
+      "patterns": [
+        "Summarize this document",
+        "Summarize the article for me",
+        "Please summarize the report",
+        "Can you summarize the attached PDF?",
+        "I need a summary of this file",
+        "Write a summary of this paper",
+        "Provide a brief summary",
+        "summary please",
+        "Give me a quick overview",
+        "Provide an overview of this report",
+        "Which points matter most in this document?",
+        "List the key takeaways from this file",
+        "What are the highlights of the report?",
+        "Give me the main ideas from this article",
+        "What's the short version of this PDF?",
+        "tldr",
+        "tl;dr please",
+        "too long, didn't read this report",
+        "Give me the gist of this document",
+        "What's the gist of the attached file?",
+        "Condense the report into a paragraph",
+        "Shorten this article",
+        "Cut this PDF down to the essentials",
+        "Reduce this paper to a few bullet points",
+        "Explain this document in a few sentences",
+        "Break this report down for me briefly",
+        "In short, what does this document say?",
+        "Sum up this article",
+        "Sum this file up for me",
+        "Recap the main points of the paper",
+        "I'd like a recap of the attached report",
+        "Can you give me a rundown of this document?",
+        "I don't have time to read this, give me the highlights",
+        "Briefly go over this file",
+        "Skim this PDF and tell me the important parts",
+        "Pull out the key points from this document",
+        "What's the takeaway from this paper?",
+        "Make a short summary of the article",
+        "summarise this document",
+        "Could you summarise the attached paper?",
+        "Give me an executive summary",
+        "Write an abstract for this report",
+        "Turn this file into a short outline",
+        "Two-sentence summary of this PDF",
+        "Just the main points please",
+        "Give me the cliff notes for this document",
+        "Summarize each section of this report",
+        "Can this article be summarized?",
+        "Overall, what's being said in this paper?",
+        "Give me a one paragraph overview of the file"
       ]
     }
   ]
