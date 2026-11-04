@@ -23,6 +23,13 @@ NEGATION_WORDS = {
     "shouldn't",
     "can't",
     "cannot",
+    "hasn't",
+    "haven't",
+    "hadn't",
+    "mustn't",
+    "needn't",
+    "mightn't",
+    "shan't",
 }
 
 # Load English stopwords once when the module is imported.
@@ -33,9 +40,10 @@ STOP_WORDS = set(stopwords.words("english")) - NEGATION_WORDS
 DATE_PATTERN = r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}"
 
 # Recognize signed numbers, thousands separators, decimals,
-# currency symbols, and percentages.
+# currency symbols, and percentages. A sign only counts when it does not
+# directly follow a word or number, so "3-5" and "covid-19" stay unsigned.
 NUMBER_PATTERN = (
-    r"[-+]?"
+    r"(?:(?<!\w)[-+])?"
     r"(?:[$€£¥])?"
     r"\d+"
     r"(?:,\d{3})*"
@@ -44,7 +52,7 @@ NUMBER_PATTERN = (
 )
 
 # Recognize Unicode words and contractions.
-WORD_PATTERN = r"[^\W\d_]+(?:['’][^\W\d_]+)*"
+WORD_PATTERN = r"[^\W\d_]+(?:'[^\W\d_]+)*"
 
 TOKEN_PATTERN = re.compile(
     rf"{DATE_PATTERN}|{NUMBER_PATTERN}|{WORD_PATTERN}"
@@ -58,8 +66,9 @@ def normalize_text(text: str) -> str:
     Steps:
     1. Validate input.
     2. Normalize Unicode characters.
-    3. Convert text to lowercase.
-    4. Normalize whitespace.
+    3. Convert curly apostrophes to straight apostrophes.
+    4. Convert text to lowercase.
+    5. Normalize whitespace.
 
     Args:
         text: Raw input text.
@@ -74,6 +83,7 @@ def normalize_text(text: str) -> str:
         raise TypeError("Input must be a string.")
 
     text = unicodedata.normalize("NFC", text)
+    text = text.replace("’", "'")
     text = text.lower()
     text = re.sub(r"\s+", " ", text)
 
@@ -116,10 +126,13 @@ def remove_stopwords(tokens: list[str]) -> list[str]:
 
 def preprocess_text(
     text: str,
-    remove_stop_words: bool = True,
+    remove_stop_words: bool = False,
 ) -> list[str]:
     """
     Normalize and tokenize text, optionally removing stopwords.
+
+    Stopwords are kept by default because the NLTK list includes words such
+    as "what", "how", and "can", which carry meaning in intents and questions.
 
     Args:
         text: Raw input text.

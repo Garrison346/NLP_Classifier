@@ -14,10 +14,19 @@ def test_preprocess_text_returns_tokens():
 
 
 def test_preprocess_text_removes_stopwords():
-    result = preprocess_text("This is a simple test")
+    result = preprocess_text(
+        "This is a simple test",
+        remove_stop_words=True,
+    )
 
     assert "is" not in result
     assert "a" not in result
+
+
+def test_preprocess_text_keeps_stopwords_by_default():
+    result = preprocess_text("What can you do?")
+
+    assert result == ["what", "can", "you", "do"]
 
 
 def test_preprocess_text_converts_to_lowercase():
@@ -56,7 +65,7 @@ def test_preprocess_text_preserves_numbers():
 
 
 def test_preprocess_text_handles_stopword_only_input():
-    assert preprocess_text("the is a") == []
+    assert preprocess_text("the is a", remove_stop_words=True) == []
 
 
 def test_preprocess_text_rejects_non_string_input():
@@ -74,6 +83,24 @@ def test_preprocess_text_preserves_negation():
     result = preprocess_text("Revenue did not increase")
 
     assert "not" in result
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        "hasn't",
+        "haven't",
+        "hadn't",
+        "mustn't",
+        "needn't",
+        "mightn't",
+        "shan't",
+    ],
+)
+def test_preprocess_text_preserves_contracted_negation_when_removing_stopwords(
+    word,
+):
+    assert preprocess_text(word, remove_stop_words=True) == [word]
 
 
 def test_preprocess_text_preserves_decimal():
@@ -102,3 +129,37 @@ def test_preprocess_text_preserves_iso_date():
 def test_preprocess_text_preserves_slash_date():
     result = preprocess_text("The meeting is scheduled for 11/04/2026")
     assert "11/04/2026" in result
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("pages 3-5", ["pages", "3", "5"]),
+        ("covid-19", ["covid", "19"]),
+        ("2020-2021", ["2020", "2021"]),
+        ("5+3", ["5", "3"]),
+    ],
+)
+def test_preprocess_text_does_not_treat_joined_hyphen_as_sign(text, expected):
+    assert preprocess_text(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("-5 degrees", ["-5", "degrees"]),
+        ("a change of +3", ["a", "change", "of", "+3"]),
+        ("(-5)", ["-5"]),
+        ("-$5", ["-$5"]),
+    ],
+)
+def test_preprocess_text_preserves_standalone_signs(text, expected):
+    assert preprocess_text(text) == expected
+
+
+def test_preprocess_text_normalizes_curly_apostrophes():
+    assert preprocess_text("don’t") == preprocess_text("don't") == ["don't"]
+
+
+def test_preprocess_text_removes_stopwords_with_curly_apostrophes():
+    assert preprocess_text("it’s", remove_stop_words=True) == []
