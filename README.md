@@ -33,26 +33,28 @@ Rather than relying entirely on pretrained language models or LLMs, this project
 ```text
 NLP_Classifier/
 │
-├── data/
-│   ├── documents/                 # Stores documents used for training and testing
-│   └── intents.json              # Contains example user messages and their intent labels
-│
-├── models/                       # Stores trained machine-learning models
+├── data/ 
+│   └── intents.json
 │
 ├── src/
-│   ├── preprocessing.py           # Cleans and prepares text for NLP tasks
-│   ├── intent_classifier.py       # Trains a model to classify user intents
-│   ├── document_classifier.py     # Classifies documents based on their themes
-│   ├── document_processor.py      # Extracts and processes text from uploaded documents
-│   └── chatbot.py                 # Connects the NLP components to handle user interactions
+│   └── nlp_classifier/
+│       ├── __init__.py
+│       ├── main.py
+│       ├── preprocessing.py
+│       ├── intent_classifier.py
+│       ├── document_classifier.py
+│       ├── document_processor.py
+│       └── chatbot.py
 │
-├── notebooks/                     # Contains experiments and exploratory data analysis
-├── tests/                         # Contains tests for project functionality
+├── tests/
+│   ├── test_preprocessing.py
+│   └── test_intent_classifier.py
 │
-├── main.py                        # Main entry point for running the application
-├── pyproject.toml                 # Defines project metadata and dependencies
-├── uv.lock                        # Locks dependency versions for reproducible environments
-└── README.md                      # Documents the project and its functionality
+├── .python-version
+├── .gitignore
+├── pyproject.toml
+├── uv.lock
+└── README.md
 ```
 
 ## Current Development Progress
