@@ -1,10 +1,7 @@
 [project]
 name = "nlp-classifier"
 version = "0.1.0"
-description = """This project focuses on developing an NLP-based chatbot using 
-            statistical and traditional machine-learning techniques. The goal is to 
-            build a system capable of understanding user input, classifying document 
-            themes, and answering questions about uploaded documents."""
+description = "An NLP-based chatbot using statistical and traditional machine-learning techniques for intent classification and document analysis."
 readme = "README.md"
 authors = [
     { name = "Garrison"}
@@ -21,8 +18,13 @@ dependencies = [
 ]
 
 [project.scripts]
-nlp-classifier = "nlp_classifier:main"
+nlp-classifier = "nlp_classifier.main:main"
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

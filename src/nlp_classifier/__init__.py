@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from nlp-classifier!")
+"""NLP Classifier package."""
+
+__version__ = "0.1.0"

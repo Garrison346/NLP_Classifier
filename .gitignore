@@ -46,3 +46,8 @@ desktop.ini
 *.log
 *.tmp
 *.bak
+
+# Additional Python tooling caches
+.ruff_cache/
+.mypy_cache/
+.pyright/
