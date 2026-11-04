@@ -48,13 +48,24 @@ Run the tests:
 uv run pytest
 ```
 
+Train and evaluate the intent classifier. Trained models are not stored in Git, so run this after cloning:
+
+```bash
+uv run python -m nlp_classifier.intent_classifier
+```
+
 ## Project Structure
 
 ```text
 NLP_Classifier/
 │
-├── data/ 
-│   └── intents.json
+├── data/
+│   ├── documents/              # Local documents, not stored in Git
+│   ├── intents.json            # Intent training examples
+│   └── intents_test.json       # Held-out test messages, never used for training
+│
+├── models/                     # Trained models, created by training, not stored in Git
+├── notebooks/                  # Local notebooks, none committed yet
 │
 ├── src/
 │   └── nlp_classifier/
@@ -79,30 +90,57 @@ NLP_Classifier/
 
 ## Current Development Progress
 
-### 1. Project Setup
+### 1. Project Setup (Complete)
 - Initialized Python project using uv.
 - Created an isolated Python virtual environment.
 - Installed required dependencies.
-- Established the initial project directory structure.
+- Established the project directory structure.
 
-### 2. NLP Preprocessing
+### 2. NLP Preprocessing (Complete)
 
-Initial text preprocessing functionality is being developed using NLTK.
+Preprocessing is implemented in `preprocessing.py` and covered by tests:
+- Unicode, whitespace, apostrophe, and lowercase normalization.
+- Tokenization that removes punctuation while keeping dates, numbers, currency, percentages, contractions, and international characters.
+- Optional stop-word removal that keeps negation words.
 
-Planned preprocessing operations include:
-- Lowercasing text.
-- Removing punctuation and special characters.
-- Tokenization.
-- Stop-word removal.
-- Stemming and lemmatization.
+Stop-words are kept by default because the standard list includes words such as "what", "how", and "can". Removing them lowered intent classification scores.
 
-### 3. Planned Machine-Learning Components
+Stemming and lemmatization are not implemented. They may be tested later as experiments.
 
-**Intent Classification**
-- JSON-based intent dataset.
-- TF-IDF feature extraction.
-- Logistic Regression classification.
-- Comparison of classification algorithms.
+### 3. Intent Classification (Complete, Initial Version)
+
+`intent_classifier.py` trains a model to recognize six intents: `greeting`, `goodbye`, `thanks`, `help`, `classify_document`, and `ask_document_question`.
+
+- **Data:** 300 training examples, with 50 per intent.
+- **Features:** TF-IDF on whole words and on character sequences.
+- **Model:** Logistic Regression, compared against Linear SVM, Multinomial Naive Bayes, and a baseline.
+- **Unclear messages:** predictions below a 0.7 confidence threshold return `unknown`.
+
+Results on a separate test set of 90 on-topic and 20 off-topic messages:
+
+| Measure | Result |
+|---|---|
+| Accuracy without the threshold | 92.2% |
+| On-topic messages answered at the threshold | 66.7% |
+| Answered messages with the correct intent | 95.0% |
+| Off-topic messages rejected | 60.0% |
+
+Repeated 5-fold cross-validation on the training data gives a macro-F1 of about 0.84, compared with 0.05 for the baseline.
+
+**Known limitations**
+- The training and test messages were written by the same author, not collected from real users, so real-world scores will likely be lower.
+- The test set is small, and it was also used to compare versions of the dataset.
+- Off-topic detection is weak. Adding an off-topic training intent rejected more of these messages, but it also rejected too many valid ones, so it was not adopted.
+
+### 4. Planned Components
+
+The remaining work, in planned order:
+
+1. Command-line chatbot that uses the intent classifier.
+2. Document processing.
+3. Document question answering.
+4. Document theme classification.
+5. Streamlit user interface.
 
 **Document Theme Classification**
 - Document text extraction and preprocessing.
