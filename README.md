@@ -67,6 +67,12 @@ Add `--debug` to see the predicted intent and confidence for each message, plus 
 uv run nlp-classifier --debug
 ```
 
+See how a PDF is processed. This is separate from the chatbot, which cannot load documents yet:
+
+```bash
+uv run python -m nlp_classifier.document_processor path/to/file.pdf
+```
+
 ## Project Structure
 
 ```text
@@ -88,11 +94,12 @@ NLP_Classifier/
 │       ├── chatbot.py              # Reply logic
 │       ├── preprocessing.py        # Text normalization and tokenization
 │       ├── intent_classifier.py    # Intent training, evaluation, and prediction
-│       ├── document_processor.py   # Placeholder, not implemented yet
+│       ├── document_processor.py   # PDF text extraction, cleanup, and splitting
 │       └── document_classifier.py  # Placeholder, not implemented yet
 │
 ├── tests/
 │   ├── test_chatbot.py
+│   ├── test_document_processor.py
 │   ├── test_intent_classifier.py
 │   ├── test_main.py
 │   └── test_preprocessing.py
@@ -155,21 +162,42 @@ Repeated 5-fold cross-validation on the training data gives a macro-F1 of about 
 
 The chatbot responds to greetings, goodbyes, thanks, and requests for help. It recognizes document requests, but explains that those features are not available yet. Messages below the confidence threshold get a reply saying it did not understand.
 
-### 5. Planned Components
+### 5. Document Processing (Complete, Initial Version)
+
+`document_processor.py` prepares PDFs for the document features. It is not connected to the chatbot yet.
+
+- **Extraction:** reads text with PyPDF and keeps each page's number.
+- **Cleanup:** repairs text extracted with one word per line, as can happen with Google Docs PDFs. It also removes many repeated headers, footers, and page numbers, separates likely headings from sentences, rejoins words split across lines, and fixes ligatures, soft hyphens, control characters, and irregular whitespace.
+- **Splitting:** divides text into sentences using NLTK, then into overlapping passages of up to 120 words. A sentence divided by a page break is rejoined and stays with the page where it starts.
+- **Errors:** gives clear messages for missing files, other file types, damaged PDFs, password-protected PDFs, and PDFs with no extractable text.
+
+**Open issues found in testing**
+- Page numbers can remain when a PDF lists its header and footer text before the page content, as in `Page 3 of 6`. This can stop a sentence divided by a page break from being rejoined, and a page with only a chart can produce a passage containing only its header and footer.
+- Sentences can split too early after abbreviations that are not on the current list, such as `Inc.`, `Corp.`, `Ltd.`, `No.`, and `approx.`
+- Heading detection can mistake table labels for headings, which separates them from their numbers.
+
+**Known limitations**
+- Automated tests use simple generated PDFs. Manual testing has covered three PDFs, one from Google Docs and two from ReportLab, so other PDFs may reveal more problems.
+- Scanned pages are skipped because there is no text recognition (OCR).
+- Two-column text was read in the correct order in one generated test, but other multi-column layouts may be read in the wrong order.
+- Table rows usually stay in order, but column headings are not linked to their values, so a number's year or category can be unclear.
+- Headers and footers are only removed when they repeat near the page edges on at least 60% of pages, so alternating left and right page headers can remain.
+- Heading detection is a best guess based on layout, so it can miss a heading or separate a short line by mistake.
+- PDFs that use AES encryption may not open. This has not been tested with a real AES-encrypted file.
+- A hyphenated word broken across lines loses its hyphen, so "well-known" can become "wellknown".
+- Footnote markers can stay attached to text, as in `value.1`.
+- Citations after a quotation, such as `(pg. 705).`, can become separate sentences.
+- Page breaks are only rejoined when the next page starts in lowercase.
+
+### 6. Planned Components
 
 The remaining work, in planned order:
 
-1. Document processing.
+1. Test document processing with a PDF exported from Word, and address the open issues above.
 2. Document question answering.
 3. Document summarization.
 4. Document theme classification.
 5. Streamlit user interface.
-
-**Document Processing**
-- PDF text extraction that keeps track of page numbers.
-- Cleanup of common PDF problems, such as words split across lines.
-- Splitting text into sentences and passages.
-- Clear errors for missing files, corrupt PDFs, and scanned PDFs with no extractable text.
 
 **Document Question Answering**
 - Document text extraction.
