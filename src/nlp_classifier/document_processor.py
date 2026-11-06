@@ -32,31 +32,40 @@ WORD_PER_LINE_MIN_SHARE = 0.7
 # One or more blank lines, including lines containing only spaces.
 BLANK_LINE_GAP = re.compile(r"\n(?:[^\S\n]*\n)+")
 
-# Lines this close to a page's top or bottom can be headers or footers. A line
-# counts as repeated if it is on at least this share of pages.
-EDGE_LINES = 2
+# Lines this close to a page's top or bottom can be headers or footers. PDFs may
+# list a header, footer, and page number together, in any order. A line counts
+# as repeated if it is on at least this share of pages, and long lines are
+# never treated as headers or footers.
+EDGE_LINES = 3
 REPEATED_LINE_MIN_PAGE_SHARE = 0.6
+MAX_REPEATED_LINE_WORDS = 15
 
 # A heading must be short compared with the page's full lines of text. This
 # avoids mistaking a line of wrapped text for a heading.
 MAX_HEADING_WORDS = 8
 MAX_HEADING_LENGTH_SHARE = 0.6
 NUMBERED_LINE = re.compile(r"\d+\.\s+\S")
+TABLE_NUMBER_LINE = re.compile(r"[$(\-]*\d[\d,.]*[%)]*|-")
 SENTENCE_END_CHARACTERS = ".!?:;\"”')]"
 
 # Periods after these words usually do not end a sentence.
 ABBREVIATIONS = {
     "al",  # As in "et al."
+    "approx",
+    "corp",
     "dept",
     "dr",
     "e.g",
     "fig",
     "figs",
     "i.e",
+    "inc",
     "jr",
+    "ltd",
     "mr",
     "mrs",
     "ms",
+    "p",
     "pg",
     "pp",
     "prof",
@@ -214,13 +223,27 @@ def _edge_line_indexes(lines: list[str]) -> set[int]:
     return set(indexes[:EDGE_LINES] + indexes[-EDGE_LINES:])
 
 
+def _find_repeated_lines(edge_lines: list[set[str]], min_share: float) -> set[str]:
+    """Find lines that appear on at least a share of pages, and at least twice."""
+    counts = Counter(line for lines in edge_lines for line in lines)
+    min_pages = max(2, math.ceil(len(edge_lines) * min_share))
+
+    return {line for line, count in counts.items() if count >= min_pages}
+
+
 def _remove_repeated_lines(pages: list[str]) -> list[str]:
     """
     Remove headers, footers, and page numbers that repeat across pages.
 
-    Only lines near the top or bottom of a page can be removed, and only when
-    the same line, ignoring numbers, is near an edge of most pages. Word-per-line
-    text must be repaired first, or its repeated words would look like headers.
+    Only short lines near the top or bottom of a page can be removed, and only
+    when the same line, ignoring numbers, is near an edge of most pages. Odd and
+    even pages are also checked separately, because they can have different
+    headers. Word-per-line text must be repaired first, or its repeated words
+    would look like headers.
+
+    The first page must match more strictly, because a cover page's title often
+    matches the header on later pages. A page with nothing but repeated lines
+    becomes empty, unless every page would, which suggests they are real text.
 
     Args:
         pages: The text of each page, in order.
@@ -232,28 +255,39 @@ def _remove_repeated_lines(pages: list[str]) -> list[str]:
         return pages
 
     page_lines = [page.split("\n") for page in pages]
-    counts: Counter[str] = Counter()
+    edge_lines = [
+        {
+            _normalize_repeated_line(lines[index])
+            for index in _edge_line_indexes(lines)
+            if len(lines[index].split()) <= MAX_REPEATED_LINE_WORDS
+        }
+        for lines in page_lines
+    ]
+    odd_pages, even_pages = edge_lines[0::2], edge_lines[1::2]
+    share = REPEATED_LINE_MIN_PAGE_SHARE
 
-    for lines in page_lines:
-        counts.update(
-            {_normalize_repeated_line(lines[i]) for i in _edge_line_indexes(lines)}
-        )
-
-    min_pages = max(2, math.ceil(len(pages) * REPEATED_LINE_MIN_PAGE_SHARE))
-    repeated = {line for line, count in counts.items() if count >= min_pages}
+    repeated = (
+        _find_repeated_lines(edge_lines, share)
+        | _find_repeated_lines(odd_pages, share)
+        | _find_repeated_lines(even_pages, share)
+    )
+    repeated_on_first_page = (
+        _find_repeated_lines(edge_lines, 1.0) | _find_repeated_lines(odd_pages, 1.0)
+    )
 
     result = []
-    for lines in page_lines:
+    for page_index, lines in enumerate(page_lines):
         edges = _edge_line_indexes(lines)
+        removable = repeated_on_first_page if page_index == 0 else repeated
         kept = [
             line
             for index, line in enumerate(lines)
-            if index not in edges or _normalize_repeated_line(line) not in repeated
+            if index not in edges or _normalize_repeated_line(line) not in removable
         ]
+        result.append("\n".join(kept))
 
-        # Keep a page that would otherwise be emptied, such as a duplicate page.
-        has_text = any(line.strip() for line in kept)
-        result.append("\n".join(kept if has_text else lines))
+    if not any(page.strip() for page in result):
+        return pages
 
     return result
 
@@ -265,18 +299,21 @@ def _is_heading(line: str, previous: str, following: str, longest: int) -> bool:
     if not following or len(words) > MAX_HEADING_WORDS:
         return False
 
-    # Only an earlier line that finished its sentence can come before a heading.
-    if previous and previous[-1] not in SENTENCE_END_CHARACTERS:
-        return False
-
-    if not following[0].isupper() and not following[0].isdigit():
+    # Only a finished sentence or a table row can come before a heading.
+    if (
+        previous
+        and previous[-1] not in SENTENCE_END_CHARACTERS
+        and not TABLE_NUMBER_LINE.fullmatch(previous)
+    ):
         return False
 
     if NUMBERED_LINE.match(line):
-        return True
+        return following[0].isupper() or following[0].isdigit()
 
+    # A plain number on the next line suggests a table row, not a heading.
     return (
-        line[0].isupper()
+        (following[0].isupper() or NUMBERED_LINE.match(following) is not None)
+        and line[0].isupper()
         and line[-1] not in ".!?,:;"
         and len(line) <= longest * MAX_HEADING_LENGTH_SHARE
     )
@@ -312,9 +349,17 @@ def _separate_headings(text: str) -> str:
         if not at_paragraph_end and _is_heading(line, previous, following, longest):
             result.extend(["", line, ""])
             previous = ""
-        else:
-            result.append(line)
-            previous = line
+            continue
+
+        # A full line of text after a table row starts a new paragraph.
+        if (
+            TABLE_NUMBER_LINE.fullmatch(previous)
+            and len(line) > longest * MAX_HEADING_LENGTH_SHARE
+        ):
+            result.append("")
+
+        result.append(line)
+        previous = line
 
     return "\n".join(result)
 
@@ -325,7 +370,7 @@ def split_sentences(text: str) -> list[str]:
 
     Paragraphs are split separately so that a heading without punctuation
     does not merge with the sentence after it. A number such as "1." stays
-    with the text that follows it.
+    with the text that follows it, and "No." stays with a number after it.
 
     Args:
         text: Cleaned text.
@@ -333,19 +378,28 @@ def split_sentences(text: str) -> list[str]:
     Returns:
         A list of sentences.
     """
-    sentences = []
+    sentences: list[str] = []
     for paragraph in text.split("\n\n"):
+        paragraph_sentences: list[str] = []
         pending_number = ""
 
         for sentence in SENTENCE_TOKENIZER.tokenize(paragraph):
             if re.fullmatch(r"\d+\.", sentence):
                 pending_number = f"{pending_number}{sentence} "
+            elif (
+                paragraph_sentences
+                and sentence[0].isdigit()
+                and re.search(r"\bNo\.$", paragraph_sentences[-1])
+            ):
+                paragraph_sentences[-1] += f" {sentence}"
             else:
-                sentences.append(pending_number + sentence)
+                paragraph_sentences.append(pending_number + sentence)
                 pending_number = ""
 
         if pending_number:
-            sentences.append(pending_number.strip())
+            paragraph_sentences.append(pending_number.strip())
+
+        sentences.extend(paragraph_sentences)
 
     return sentences
 

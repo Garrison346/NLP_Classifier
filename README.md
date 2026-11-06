@@ -171,18 +171,17 @@ The chatbot responds to greetings, goodbyes, thanks, and requests for help. It r
 - **Splitting:** divides text into sentences using NLTK, then into overlapping passages of up to 120 words. A sentence divided by a page break is rejoined and stays with the page where it starts.
 - **Errors:** gives clear messages for missing files, other file types, damaged PDFs, password-protected PDFs, and PDFs with no extractable text.
 
-**Open issues found in testing**
-- Page numbers can remain when a PDF lists its header and footer text before the page content, as in `Page 3 of 6`. This can stop a sentence divided by a page break from being rejoined, and a page with only a chart can produce a passage containing only its header and footer.
-- Sentences can split too early after abbreviations that are not on the current list, such as `Inc.`, `Corp.`, `Ltd.`, `No.`, and `approx.`
-- Heading detection can mistake table labels for headings, which separates them from their numbers.
-
 **Known limitations**
-- Automated tests use simple generated PDFs. Manual testing has covered three PDFs, one from Google Docs and two from ReportLab, so other PDFs may reveal more problems.
+- Automated tests use simple generated PDFs. Manual testing has covered four PDFs, two from Google Docs and two from ReportLab. PDFs exported directly from Word have not been tested, so other PDFs may reveal more problems.
+- Some Google Docs PDFs extract without any paragraph gaps, so headings and tables can merge with nearby sentences, and the first number in a list can attach to the sentence before it.
+- Formulas can gain extra spaces, as in `x ₁`.
 - Scanned pages are skipped because there is no text recognition (OCR).
 - Two-column text was read in the correct order in one generated test, but other multi-column layouts may be read in the wrong order.
 - Table rows usually stay in order, but column headings are not linked to their values, so a number's year or category can be unclear.
-- Headers and footers are only removed when they repeat near the page edges on at least 60% of pages, so alternating left and right page headers can remain.
+- Headers and footers are only removed when they are short and repeat near the page edges on at least 60% of all pages, odd pages, or even pages. Others can remain, and a real line that repeats this way can be removed.
 - Heading detection is a best guess based on layout, so it can miss a heading or separate a short line by mistake.
+- Sentence splitting relies on a short list of abbreviations. Words not on the list, such as `Ore.`, can end a sentence too early, and a sentence that really ends in a listed word, such as `Inc.`, can merge with the next one.
+- A table can be treated as one long sentence, and it may be cut at a word limit rather than between rows.
 - PDFs that use AES encryption may not open. This has not been tested with a real AES-encrypted file.
 - A hyphenated word broken across lines loses its hyphen, so "well-known" can become "wellknown".
 - Footnote markers can stay attached to text, as in `value.1`.
@@ -193,11 +192,10 @@ The chatbot responds to greetings, goodbyes, thanks, and requests for help. It r
 
 The remaining work, in planned order:
 
-1. Test document processing with a PDF exported from Word, and address the open issues above.
-2. Document question answering.
-3. Document summarization.
-4. Document theme classification.
-5. Streamlit user interface.
+1. Document question answering.
+2. Document summarization.
+3. Document theme classification.
+4. Streamlit user interface.
 
 **Document Question Answering**
 - Document text extraction.

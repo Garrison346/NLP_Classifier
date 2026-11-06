@@ -221,7 +221,7 @@ def test_remove_repeated_lines_keeps_header_missing_from_most_pages():
 
 def test_remove_repeated_lines_keeps_repeated_line_away_from_page_edges():
     pages = [
-        f"Top {word}.\nNext {word}.\nA repeated line.\nLast {word}.\nEnd {word}."
+        f"A {word}.\nB {word}.\nC {word}.\nA repeated line.\nD {word}.\nE {word}.\nF {word}."
         for word in ["one", "two", "three"]
     ]
 
@@ -230,6 +230,72 @@ def test_remove_repeated_lines_keeps_repeated_line_away_from_page_edges():
 
 def test_remove_repeated_lines_keeps_line_on_a_single_page_document():
     assert _remove_repeated_lines(["Title\nBody."]) == ["Title\nBody."]
+
+
+def test_remove_repeated_lines_removes_three_lines_listed_before_content():
+    pages = [
+        f"Annual Report\nA fictional notice.\nPage {number} of 3\nBody about {word}."
+        for number, word in enumerate(["cats", "dogs", "fish"], start=1)
+    ]
+
+    assert _remove_repeated_lines(pages) == [
+        "Body about cats.",
+        "Body about dogs.",
+        "Body about fish.",
+    ]
+
+
+def test_remove_repeated_lines_removes_alternating_page_headers():
+    pages = [
+        "Body one.\nMore one.",
+        "Company Name\nBody two.",
+        "Annual Report\nBody three.",
+        "Company Name\nBody four.",
+        "Annual Report\nBody five.",
+        "Company Name\nBody six.",
+    ]
+
+    assert _remove_repeated_lines(pages) == [
+        "Body one.\nMore one.",
+        "Body two.",
+        "Body three.",
+        "Body four.",
+        "Body five.",
+        "Body six.",
+    ]
+
+
+def test_remove_repeated_lines_keeps_cover_title_matching_later_header():
+    pages = [
+        "Company Name\nThe cover page.",
+        "Company Name\nBody two.",
+        "Other Header\nBody three.",
+        "Company Name\nBody four.",
+        "Other Header\nBody five.",
+        "Company Name\nBody six.",
+    ]
+
+    result = _remove_repeated_lines(pages)
+
+    assert result[0] == "Company Name\nThe cover page."
+    assert result[1] == "Body two."
+
+
+def test_remove_repeated_lines_empties_page_with_only_a_header_and_footer():
+    pages = [
+        "Annual Report\nPage 1 of 3\nBody one.",
+        "Annual Report\nPage 2 of 3",
+        "Annual Report\nPage 3 of 3\nBody three.",
+    ]
+
+    assert _remove_repeated_lines(pages) == ["Body one.", "", "Body three."]
+
+
+def test_remove_repeated_lines_keeps_long_line_repeated_across_pages():
+    long_line = " ".join(["word"] * 16)
+    pages = [f"{long_line}\nBody {word}." for word in ["one", "two", "three"]]
+
+    assert _remove_repeated_lines(pages) == pages
 
 
 def test_remove_repeated_lines_keeps_page_that_would_be_emptied():
@@ -320,6 +386,43 @@ def test_separate_headings_keeps_last_line_of_page():
     assert "\n\n" not in _separate_headings(text)
 
 
+def test_separate_headings_keeps_table_label_with_its_number():
+    text = f"{WRAPPED_LINE} done.\nGross profit\n16,900\nCost of goods\n25,350"
+
+    assert "\n\n" not in _separate_headings(text)
+
+
+def test_separate_headings_allows_heading_before_a_numbered_line():
+    text = f"{WRAPPED_LINE} done.\nInside this guide\n1. What is an orca?\n2. Where they live"
+
+    assert "\n\nInside this guide\n\n" in _separate_headings(text)
+
+
+@pytest.mark.parametrize("number", ["17,480", "(1,548)", "$1.53", "9.2%", "(7.3%)", "-"])
+def test_separate_headings_finds_heading_after_a_table_row(number):
+    text = f"{WRAPPED_LINE} done.\nGoodwill\n{number}\nPrincipal risks\nThe first risk."
+
+    assert "\n\nPrincipal risks\n\n" in _separate_headings(text)
+
+
+def test_separate_headings_starts_paragraph_for_full_line_after_table_row():
+    text = f"{WRAPPED_LINE} done.\nGoodwill\n2,850\n{WRAPPED_LINE}\nfinishes here."
+
+    assert _separate_headings(text).endswith(f"2,850\n\n{WRAPPED_LINE}\nfinishes here.")
+
+
+def test_separate_headings_keeps_next_table_row_together():
+    text = f"{WRAPPED_LINE} done.\nGoodwill\n2,850\nInventory\n7,350"
+
+    assert "\n\n" not in _separate_headings(text)
+
+
+def test_separate_headings_allows_numbered_heading_before_a_number():
+    text = f"{WRAPPED_LINE} done.\n2. Results\n2025 was a good year."
+
+    assert "\n\n2. Results\n\n" in _separate_headings(text)
+
+
 def test_separate_headings_keeps_short_paragraph_after_blank_line():
     text = f"{WRAPPED_LINE} done.\n\nCivil Rights Movement\n\nThe text starts here."
 
@@ -351,6 +454,21 @@ def test_split_sentences_keeps_number_at_end_of_text():
     assert split_sentences("See item 4.\n\n5.") == ["See item 4.", "5."]
 
 
+def test_split_sentences_keeps_no_abbreviation_with_following_number():
+    assert split_sentences("Our term loan, Loan No. 2217, is fixed. It ends soon.") == [
+        "Our term loan, Loan No. 2217, is fixed.",
+        "It ends soon.",
+    ]
+
+
+@pytest.mark.parametrize("word", ["no", "No"])
+def test_split_sentences_ends_sentence_at_word_no_before_text(word):
+    assert split_sentences(f"The answer was {word}. They left.") == [
+        f"The answer was {word}.",
+        "They left.",
+    ]
+
+
 def test_split_sentences_splits_on_end_punctuation():
     assert split_sentences("One here. Two here! Three here?") == [
         "One here.",
@@ -370,6 +488,11 @@ def test_split_sentences_splits_on_end_punctuation():
         "Smith et al. found a link.",
         "Martin Luther King Jr. led the march.",
         "It was organized by Rev. Hosea Williams.",
+        "Revenue rose to approx. $42.3 million.",
+        "Acme Holdings Inc. had a strong year.",
+        "Tidewell Logistics Corp. Offset lower sales.",
+        "Harlow Cold Storage Ltd. Opened a site.",
+        "See p. 3 of the report.",
         "The quote appears on (pg. 705) of the book.",
     ],
 )
@@ -564,6 +687,43 @@ def test_process_document_rejoins_sentence_divided_by_page_break(tmp_path):
     assert [(p.page_number, p.text) for p in document.passages] == [
         (1, "The first sentence. This was a peaceful act of protest in the city."),
         (2, "The next sentence."),
+    ]
+
+
+def test_process_document_rejoins_sentence_with_header_and_footer_between(tmp_path):
+    path = write_pdf(
+        tmp_path / "footer.pdf",
+        [
+            ["Annual Report", "Page 1 of 2", "The first sentence. This one looks forward to"],
+            ["Annual Report", "Page 2 of 2", "sharing the results. The last sentence."],
+        ],
+    )
+
+    document = process_document(path)
+
+    assert [(p.page_number, p.text) for p in document.passages] == [
+        (1, "The first sentence. This one looks forward to sharing the results."),
+        (2, "The last sentence."),
+    ]
+
+
+def test_process_document_skips_page_with_only_header_and_footer(tmp_path):
+    path = write_pdf(
+        tmp_path / "chart.pdf",
+        [
+            ["Annual Report", "Page 1 of 3", "The first page text."],
+            ["Annual Report", "Page 2 of 3"],
+            ["Annual Report", "Page 3 of 3", "The last page text."],
+        ],
+    )
+
+    document = process_document(path)
+
+    assert document.page_count == 3
+    assert [page.number for page in document.pages] == [1, 3]
+    assert [p.text for p in document.passages] == [
+        "The first page text.",
+        "The last page text.",
     ]
 
 
