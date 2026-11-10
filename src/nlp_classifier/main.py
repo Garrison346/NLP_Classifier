@@ -3,11 +3,14 @@
 import argparse
 import sys
 
-from nlp_classifier.chatbot import ChatReply, Chatbot, load_responses
+from nlp_classifier.chatbot import HELP_TEXT, ChatReply, Chatbot, load_responses
 from nlp_classifier.intent_classifier import MODEL_PATH, load_model
 
 
 EXIT_COMMANDS = {"exit", "quit"}
+HELP_COMMAND = "help"
+LOAD_COMMAND = "load"
+LOAD_USAGE = "Type \"load\" followed by a PDF's path, for example: load data/documents/report.pdf"
 TRAINING_COMMAND = "uv run python -m nlp_classifier.intent_classifier"
 
 
@@ -17,7 +20,8 @@ def format_reply(reply: ChatReply, debug: bool = False) -> str:
 
     Args:
         reply: The chatbot's reply.
-        debug: Whether to include the predicted intent and confidence.
+        debug: Whether to include the predicted intent, confidence, and the
+            document answer's score.
 
     Returns:
         The text to display.
@@ -32,9 +36,33 @@ def format_reply(reply: ChatReply, debug: bool = False) -> str:
             details.append(f"top guess {prediction.top_guess}")
 
         details.append(f"confidence {prediction.confidence:.2f}")
+
+        if reply.answer is not None:
+            details.append(f"answer score {reply.answer.score:.2f}")
+
         text += f"\n     [{', '.join(details)}]"
 
     return text
+
+
+def parse_load_command(message: str) -> str | None:
+    """
+    Get the path from a load command.
+
+    Args:
+        message: The user's message.
+
+    Returns:
+        The path, an empty string if no path was given, or None if the
+        message is not a load command.
+    """
+    command, _, path = message.partition(" ")
+
+    if command.lower() != LOAD_COMMAND:
+        return None
+
+    # Allow quotes around paths that contain spaces.
+    return path.strip().strip("\"'")
 
 
 def run_chat(chatbot: Chatbot, debug: bool = False) -> None:
@@ -43,9 +71,10 @@ def run_chat(chatbot: Chatbot, debug: bool = False) -> None:
 
     Args:
         chatbot: The chatbot to talk to.
-        debug: Whether to show each predicted intent and confidence.
+        debug: Whether to show how each reply was chosen.
     """
-    print('Chatbot ready. Type "exit" or "quit" to leave.')
+    print('Chatbot ready. Type "load" and a PDF path to ask about a document,')
+    print('or "exit" to leave.')
 
     while True:
         try:
@@ -60,6 +89,15 @@ def run_chat(chatbot: Chatbot, debug: bool = False) -> None:
 
         if message.lower() in EXIT_COMMANDS:
             break
+
+        if message.lower() == HELP_COMMAND:
+            print(f"Bot: {HELP_TEXT}")
+            continue
+
+        path = parse_load_command(message)
+        if path is not None:
+            print(f"Bot: {chatbot.load_document(path) if path else LOAD_USAGE}")
+            continue
 
         print(format_reply(chatbot.respond(message), debug))
 
@@ -80,9 +118,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="show the predicted intent and confidence for each message",
+        help="show how each reply was chosen",
+    )
+    parser.add_argument(
+        "--document",
+        help="path to a PDF to load at the start",
     )
     args = parser.parse_args(argv)
+
+    # PDF text can contain characters that some terminals cannot display.
+    sys.stdout.reconfigure(errors="replace")
 
     try:
         model = load_model()
@@ -94,7 +139,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    run_chat(Chatbot(model, load_responses()), debug=args.debug)
+    chatbot = Chatbot(model, load_responses())
+
+    if args.document:
+        print(f"Bot: {chatbot.load_document(args.document)}")
+
+    run_chat(chatbot, debug=args.debug)
 
     return 0
 

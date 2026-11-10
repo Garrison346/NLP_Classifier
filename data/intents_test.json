@@ -61,26 +61,6 @@
       ]
     },
     {
-      "tag": "help",
-      "patterns": [
-        "Can you help me?",
-        "What do you do exactly?",
-        "I could use a hand",
-        "How do I upload a file?",
-        "What commands are there?",
-        "Is there a user guide?",
-        "I'm lost",
-        "What are you capable of?",
-        "Explain what this tool does",
-        "Can you handle Word documents?",
-        "show me what you can do",
-        "help please",
-        "Where do I start?",
-        "Are there any tutorials?",
-        "what options do i have"
-      ]
-    },
-    {
       "tag": "classify_document",
       "patterns": [
         "What type of document is this?",

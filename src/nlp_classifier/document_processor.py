@@ -128,10 +128,13 @@ class Passage:
         text: The passage text.
         page_number: The page where the passage starts. Its last sentence may
             finish on the next page.
+        sentences: The sentences that make up the passage. Splitting the text
+            again would lose the boundaries between headings and sentences.
     """
 
     text: str
     page_number: int
+    sentences: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -426,29 +429,40 @@ def split_passages(
     Raises:
         ValueError: If max_words is not positive or the overlap is negative.
     """
+    groups = _group_sentences(sentences, max_words, overlap_sentences)
+
+    return [" ".join(group) for group in groups]
+
+
+def _group_sentences(
+    sentences: Iterable[str],
+    max_words: int,
+    overlap_sentences: int,
+) -> list[list[str]]:
+    """Group sentences as split_passages does, keeping each sentence separate."""
     if max_words < 1:
         raise ValueError("max_words must be at least 1.")
     if overlap_sentences < 0:
         raise ValueError("overlap_sentences cannot be negative.")
 
-    passages = []
+    groups = []
     current: list[str] = []
 
     for sentence in _limit_sentence_lengths(sentences, max_words):
         if current and _word_count(current + [sentence]) > max_words:
-            passages.append(" ".join(current))
+            groups.append(current)
             current = current[-overlap_sentences:] if overlap_sentences else []
 
             # Drop the overlap if it leaves no room for the next sentence.
             if _word_count(current + [sentence]) > max_words:
                 current = []
 
-        current.append(sentence)
+        current = current + [sentence]
 
     if current:
-        passages.append(" ".join(current))
+        groups.append(current)
 
-    return passages
+    return groups
 
 
 def _word_count(sentences: list[str]) -> int:
@@ -598,9 +612,9 @@ def process_document(
     pages, page_count = extract_pages(path)
 
     passages = [
-        Passage(text, page_number)
+        Passage(" ".join(group), page_number, tuple(group))
         for page_number, sentences in _split_page_sentences(pages)
-        for text in split_passages(sentences, max_words, overlap_sentences)
+        for group in _group_sentences(sentences, max_words, overlap_sentences)
     ]
 
     return Document(Path(path).name, page_count, pages, passages)

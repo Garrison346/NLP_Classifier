@@ -37,7 +37,7 @@ Install the project and its dependencies:
 uv sync
 ```
 
-Download the NLTK stopword data, which is required for stopword removal and its tests:
+Download the NLTK stopword data, which is required for document question answering, stopword removal, and their tests:
 
 ```bash
 uv run python -m nltk.downloader stopwords
@@ -55,22 +55,40 @@ Train and evaluate the intent classifier. Trained models are not stored in Git, 
 uv run python -m nlp_classifier.intent_classifier
 ```
 
-Start the command-line chatbot. Type `exit` or `quit` to leave:
+Start the command-line chatbot. Type `help` for instructions, or `exit` or `quit` to leave:
 
 ```bash
 uv run nlp-classifier
 ```
 
-Add `--debug` to see the predicted intent and confidence for each message, plus the model's top guess when a message is rejected:
+To ask questions about a PDF, type `load` followed by its path in the chat, such as `load data/documents/report.pdf`. Use quotes around a path that contains spaces. You can also load a PDF when the chatbot starts:
+
+```bash
+uv run nlp-classifier --document path/to/file.pdf
+```
+
+Add `--debug` to see the predicted intent and confidence for each message, the model's top guess when a message is rejected, and the score of each document answer:
 
 ```bash
 uv run nlp-classifier --debug
 ```
 
-See how a PDF is processed. This is separate from the chatbot, which cannot load documents yet:
+See how a PDF is processed:
 
 ```bash
 uv run python -m nlp_classifier.document_processor path/to/file.pdf
+```
+
+Ask questions about a PDF without the intent classifier:
+
+```bash
+uv run python -m nlp_classifier.document_qa path/to/file.pdf
+```
+
+Score Q&A on a file of questions with known answers. The file format is described in `evaluate_qa.py`. Use `--split test` only for a final check after choosing settings:
+
+```bash
+uv run python -m nlp_classifier.evaluate_qa data/documents/qa_eval.json
 ```
 
 ## Project Structure
@@ -95,11 +113,15 @@ NLP_Classifier/
 │       ├── preprocessing.py        # Text normalization and tokenization
 │       ├── intent_classifier.py    # Intent training, evaluation, and prediction
 │       ├── document_processor.py   # PDF text extraction, cleanup, and splitting
+│       ├── document_qa.py          # Question answering with TF-IDF retrieval
+│       ├── evaluate_qa.py          # Scores Q&A on questions with known answers
 │       └── document_classifier.py  # Placeholder, not implemented yet
 │
 ├── tests/
 │   ├── test_chatbot.py
 │   ├── test_document_processor.py
+│   ├── test_document_qa.py
+│   ├── test_evaluate_qa.py
 │   ├── test_intent_classifier.py
 │   ├── test_main.py
 │   └── test_preprocessing.py
@@ -132,23 +154,25 @@ Stemming and lemmatization are not implemented. They may be tested later as expe
 
 ### 3. Intent Classification (Complete, Initial Version)
 
-`intent_classifier.py` trains a model to recognize seven intents: `greeting`, `goodbye`, `thanks`, `help`, `classify_document`, `ask_document_question`, and `summarize_document`.
+`intent_classifier.py` trains a model to recognize six intents: `greeting`, `goodbye`, `thanks`, `classify_document`, `ask_document_question`, and `summarize_document`.
 
-- **Data:** 380 training examples, with 65 each for `classify_document` and `ask_document_question`, and 50 for each other intent.
+- **Data:** 330 training examples, with 65 each for `classify_document` and `ask_document_question`, and 50 for each other intent.
 - **Features:** TF-IDF on whole words and on character sequences.
 - **Model:** Logistic Regression, compared against Linear SVM, Multinomial Naive Bayes, and a baseline.
 - **Unclear messages:** predictions below a 0.7 confidence threshold return `unknown`.
 
-Results on a separate test set of 105 on-topic and 20 off-topic messages:
+Results on a separate test set of 90 on-topic and 20 off-topic messages:
 
 | Measure | Result |
 |---|---|
-| Accuracy without the threshold | 91.4% |
-| On-topic messages answered at the threshold | 67.6% |
-| Answered messages with the correct intent | 97.2% |
-| Off-topic messages rejected | 70.0% |
+| Accuracy without the threshold | 93.3% |
+| On-topic messages answered at the threshold | 70.0% |
+| Answered messages with the correct intent | 98.4% |
+| Off-topic messages rejected | 80.0% |
 
-Repeated 5-fold cross-validation on the training data gives a macro-F1 of about 0.83, compared with about 0.04 for the baseline.
+Repeated 5-fold cross-validation on the training data gives a macro-F1 of about 0.84, compared with about 0.06 for the baseline.
+
+A `help` intent was removed because the chatbot is a class project rather than a public tool. It sent some document questions, such as "How do orcas sleep?", to the help reply instead. Typing `help` still shows instructions, as a fixed command that does not use the classifier.
 
 **Known limitations**
 - The training and test messages were written by the same author, not collected from real users, so real-world scores will likely be lower.
@@ -160,11 +184,11 @@ Repeated 5-fold cross-validation on the training data gives a macro-F1 of about 
 
 `chatbot.py` turns each message into a reply without using the terminal, so a future interface can reuse it. `main.py` runs the chat in the terminal.
 
-The chatbot responds to greetings, goodbyes, thanks, and requests for help. It recognizes document requests, but explains that those features are not available yet. Messages below the confidence threshold get a reply saying it did not understand.
+The chatbot responds to greetings, goodbyes, and thanks, and answers questions about a loaded PDF. Typing `help` shows instructions. It recognizes requests to classify or summarize a document, but explains that those features are not available yet. Messages below the confidence threshold get a reply saying it did not understand.
 
 ### 5. Document Processing (Complete, Initial Version)
 
-`document_processor.py` prepares PDFs for the document features. It is not connected to the chatbot yet.
+`document_processor.py` prepares PDFs for the document features.
 
 - **Extraction:** reads text with PyPDF and keeps each page's number.
 - **Cleanup:** repairs text extracted with one word per line, as can happen with Google Docs PDFs. It also removes many repeated headers, footers, and page numbers, separates likely headings from sentences, rejoins words split across lines, and fixes ligatures, soft hyphens, control characters, and irregular whitespace.
@@ -188,21 +212,45 @@ The chatbot responds to greetings, goodbyes, thanks, and requests for help. It r
 - Citations after a quotation, such as `(pg. 705).`, can become separate sentences.
 - Page breaks are only rejoined when the next page starts in lowercase.
 
-### 6. Planned Components
+### 6. Document Question Answering (Complete, Initial Version)
+
+`document_qa.py` answers questions with a sentence from the loaded document and the page it came from.
+
+- **Search terms:** stopwords are removed and words are stemmed, so "scaling" matches "scaled".
+- **Retrieval:** TF-IDF is fitted on the document's passages. The three passages most similar to the question, by cosine similarity, are searched for the best sentence.
+- **Scoring:** a sentence's score combines its own similarity with its passage's similarity. Sentences under four words, which are usually headings, are never given as answers.
+- **Not found:** answers scoring below 0.2 get a reply saying the answer was not found.
+
+In the chatbot, a message classified as a document question is answered from the loaded document. When a document is loaded, a message the intent classifier is unsure about is also tried as a question, and is only answered if a match passes the threshold.
+
+Results on 55 answerable and 12 unanswerable questions about four PDFs:
+
+| Measure | Result |
+|---|---|
+| Correct answers using Q&A alone, without the threshold | 36 of 55 (65%) |
+| Correct answers through the chatbot | 34 of 55 (62%) |
+| Unanswerable questions given no answer through the chatbot | 7 of 12 (58%) |
+
+These settings were chosen using the same questions, which were written by the same author as the code after reading the documents, so real-world results will likely be lower. The questions are kept in `data/documents/`, so they are not published, and are now split into 46 for choosing settings and 21 held out for final checks. On the held-out questions, Q&A alone answers 11 of 17 correctly and gives no answer to 3 of 4 unanswerable questions.
+
+**Experiment: averaged word vectors**
+
+Blending TF-IDF with averaged GloVe word vectors (100 dimensions) was tested to help match words with similar meanings, such as "another name" and "also called". It made results worse. On the held-out questions, the best blend chosen on the tuning questions answered 9 of 17 correctly and rejected 1 of 4 unanswerable questions, so it was not adopted. Averaging made most sentences about the same topic look alike, related words with opposite meanings looked similar (such as "warm" and "colder"), and higher scores overall made unanswerable questions harder to reject. Sentence embeddings, which are trained to compare whole sentences, have not been tested.
+
+**Known limitations**
+- Answers come from matching words, not meaning, so a question that uses different words from the document, such as "another name" for "also called", often finds the wrong sentence.
+- When an answer is not in the document, a sentence that shares the question's topic words can still be returned with a high score.
+- Tables have little structure after extraction, so questions about table values are unreliable.
+- Merged headings can appear at the start of an answer.
+- Only one document can be loaded at a time.
+
+### 7. Planned Components
 
 The remaining work, in planned order:
 
-1. Document question answering.
-2. Document summarization.
-3. Document theme classification.
-4. Streamlit user interface.
-
-**Document Question Answering**
-- Document text extraction.
-- Text segmentation.
-- TF-IDF-based document retrieval.
-- Cosine similarity for identifying relevant passages.
-- Extractive question answering.
+1. Document summarization.
+2. Document theme classification.
+3. Streamlit user interface.
 
 **Document Summarization**
 - Sentence segmentation.

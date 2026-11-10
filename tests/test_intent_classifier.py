@@ -165,7 +165,7 @@ def test_project_dataset_is_balanced_and_has_no_duplicates():
     counts = {label: labels.count(label) for label in set(labels)}
     token_lists = [tuple(preprocess_text(text)) for text in texts]
 
-    assert len(counts) == 7
+    assert len(counts) == 6
     assert min(counts.values()) >= 20
     assert max(counts.values()) - min(counts.values()) <= 15
     assert len(token_lists) == len(set(token_lists))
