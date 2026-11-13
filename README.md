@@ -91,6 +91,18 @@ Score Q&A on a file of questions with known answers. The file format is describe
 uv run python -m nlp_classifier.evaluate_qa data/documents/qa_eval.json
 ```
 
+Summarize a PDF without the intent classifier. Add `--method lead`, `tfidf`, or `textrank` to choose the method:
+
+```bash
+uv run python -m nlp_classifier.summarizer path/to/file.pdf
+```
+
+Compare the summarization methods on a file of key points. The file format is described in `evaluate_summary.py`:
+
+```bash
+uv run python -m nlp_classifier.evaluate_summary data/documents/summary_key_points.json
+```
+
 ## Project Structure
 
 ```text
@@ -115,6 +127,8 @@ NLP_Classifier/
 │       ├── document_processor.py   # PDF text extraction, cleanup, and splitting
 │       ├── document_qa.py          # Question answering with TF-IDF retrieval
 │       ├── evaluate_qa.py          # Scores Q&A on questions with known answers
+│       ├── summarizer.py           # Extractive summaries with lead, TF-IDF, and TextRank
+│       ├── evaluate_summary.py     # Scores summaries by key-point coverage
 │       └── document_classifier.py  # Placeholder, not implemented yet
 │
 ├── tests/
@@ -122,9 +136,11 @@ NLP_Classifier/
 │   ├── test_document_processor.py
 │   ├── test_document_qa.py
 │   ├── test_evaluate_qa.py
+│   ├── test_evaluate_summary.py
 │   ├── test_intent_classifier.py
 │   ├── test_main.py
-│   └── test_preprocessing.py
+│   ├── test_preprocessing.py
+│   └── test_summarizer.py
 │
 ├── .python-version
 ├── .gitignore
@@ -184,7 +200,7 @@ A `help` intent was removed because the chatbot is a class project rather than a
 
 `chatbot.py` turns each message into a reply without using the terminal, so a future interface can reuse it. `main.py` runs the chat in the terminal.
 
-The chatbot responds to greetings, goodbyes, and thanks, and answers questions about a loaded PDF. Typing `help` shows instructions. It recognizes requests to classify or summarize a document, but explains that those features are not available yet. Messages below the confidence threshold get a reply saying it did not understand.
+The chatbot responds to greetings, goodbyes, and thanks, and answers questions about and summarizes a loaded PDF. Typing `help` shows instructions. It recognizes requests to classify a document, but explains that this feature is not available yet. Messages below the confidence threshold get a reply saying it did not understand.
 
 ### 5. Document Processing (Complete, Initial Version)
 
@@ -244,18 +260,48 @@ Blending TF-IDF with averaged GloVe word vectors (100 dimensions) was tested to 
 - Merged headings can appear at the start of an answer.
 - Only one document can be loaded at a time.
 
-### 7. Planned Components
+### 7. Document Summarization (Complete, Initial Version)
+
+`summarizer.py` builds extractive summaries: it selects the document's most important sentences and shows them in their original order, with their page numbers. Summaries have 3 to 6 sentences, depending on the document's length.
+
+Short sentences, table rows, citations with web addresses, and repeated sentences are not used. Three methods are available:
+
+- **Lead (baseline):** the first sentences. Real methods should beat it.
+- **TF-IDF scoring:** sentences whose words are most important to the document, using the average importance of each sentence's words.
+- **TextRank (default):** sentences linked by TF-IDF cosine similarity form a graph, and the PageRank algorithm ranks the sentences most similar to many others.
+
+TF-IDF scoring and TextRank choose sentences with Maximal Marginal Relevance (MMR), which avoids repetition. Sentences are chosen one at a time, and each candidate's score is reduced by its similarity to the sentences already chosen, with a penalty of 0.3. The summarizer command's `--redundancy-penalty` option changes it, and 0 turns it off.
+
+Methods are compared by key-point coverage: each document has 4 to 6 key points, each with phrases that a sentence covering it should contain. The key points are kept in `data/documents/`, so they are not published.
+
+Results on four documents, with 6 key points each:
+
+| Method | Orca guide | Financial report | Civil Rights essay | K-means guide | Total |
+|---|---|---|---|---|---|
+| Lead | 1 | 2 | 0 | 1 | 4 of 24 |
+| TF-IDF scoring, no MMR | 2 | 1 | 2 | 1 | 6 of 24 |
+| TF-IDF scoring, MMR | 2 | 0 | 2 | 2 | 6 of 24 |
+| TextRank, no MMR | 4 | 2 | 1 | 3 | 10 of 24 |
+| **TextRank, MMR (default)** | **5** | **2** | **2** | **3** | **12 of 24** |
+
+TextRank with MMR covers the most key points, so it is the default. MMR removed a near-duplicate sentence from the essay's summary, where the introduction and conclusion list the same events, and from the orca guide's. Penalties of 0.2 and 0.3 both gave 12 of 24 for TextRank, while 0.7 dropped it to 7. Even the default covers only half of the key points. The key points were written after seeing the summaries, which may favor the methods' choices, and a key point only counts when a sentence covers it directly, not when an event is just named in a list.
+
+**Experiment: clustering sentences with K-means**
+
+Grouping sentences into clusters with K-means, then taking one sentence from each cluster, was tested as a way to cover more of a document's topics. The best version, which took the sentence with the highest TextRank score from each cluster, averaged 8.4 of 24 key points over five random seeds, with results from 6 to 10 depending on the seed, compared with 12 for TextRank with MMR. In a blind comparison of the two methods' summaries, the project author preferred TextRank with MMR for three of four documents, and clustering for the orca guide. The default was shown first in every pair, which may have favored it. Clustering was not adopted, because it scored lower and its summaries change with the random seed. The comparison also showed that exact-phrase key points can miss good summaries, such as clustering's orca summary, so reading the summaries remains important.
+
+**Known limitations**
+- MMR only catches repetition in wording, so two sentences that say the same thing in different words can both be chosen.
+- TextRank favors long sentences, which link to more sentences, so it can choose a long but unimportant sentence.
+- Merged headings and table rows can still appear when they are joined to a normal sentence.
+- The evaluation covers only a few documents, so only large differences between methods are meaningful. The MMR penalty was also chosen using these key points.
+
+### 8. Planned Components
 
 The remaining work, in planned order:
 
-1. Document summarization.
-2. Document theme classification.
-3. Streamlit user interface.
-
-**Document Summarization**
-- Sentence segmentation.
-- TF-IDF-based sentence scoring.
-- Extractive summaries built from the highest-scoring sentences.
+1. Document theme classification.
+2. Streamlit user interface.
 
 **Document Theme Classification**
 - Document text extraction and preprocessing.

@@ -11,8 +11,9 @@ from pathlib import Path
 
 from sklearn.pipeline import Pipeline
 
-from nlp_classifier.document_processor import DocumentError, process_document
+from nlp_classifier.document_processor import Document, DocumentError, process_document
 from nlp_classifier.document_qa import Answer, DocumentIndex
+from nlp_classifier.summarizer import summarize
 from nlp_classifier.intent_classifier import (
     INTENTS_PATH,
     UNKNOWN_INTENT,
@@ -22,14 +23,15 @@ from nlp_classifier.intent_classifier import (
 
 
 QUESTION_INTENT = "ask_document_question"
+SUMMARY_INTENT = "summarize_document"
 
 UNKNOWN_REPLY = "Sorry, I didn't understand that. Type \"help\" to see what I can do."
 
 # Shown for the "help" command, which does not use the intent classifier.
 HELP_TEXT = (
-    "I can answer questions about a PDF. Type \"load\" followed by its path, "
-    "then ask me about it. Type \"exit\" to leave. Identifying a document's "
-    "theme and summarizing it are coming soon."
+    "I can answer questions about a PDF and summarize it. Type \"load\" "
+    "followed by its path, then ask me about it or ask for a summary. Type "
+    "\"exit\" to leave. Identifying a document's theme is coming soon."
 )
 NO_DOCUMENT_REPLY = (
     "Load a PDF first by typing \"load\" followed by its path, "
@@ -44,15 +46,11 @@ CLASSIFY_DOCUMENT_REPLY = (
     "It sounds like you want to classify a document, "
     "but I can't do that yet. Document classification is coming soon."
 )
-SUMMARIZE_DOCUMENT_REPLY = (
-    "It sounds like you want a document summary, "
-    "but I can't do that yet. Summaries are coming soon."
-)
+NO_SUMMARY_REPLY = "{name} has no sentences long enough to summarize."
 
 # Replies for document features that are not available yet.
 ACTION_REPLIES = {
     "classify_document": CLASSIFY_DOCUMENT_REPLY,
-    "summarize_document": SUMMARIZE_DOCUMENT_REPLY,
 }
 
 
@@ -110,6 +108,7 @@ class Chatbot:
         """
         self.model = model
         self.responses = responses
+        self.document: Document | None = None
         self.document_name: str | None = None
         self.index: DocumentIndex | None = None
 
@@ -133,12 +132,13 @@ class Chatbot:
         except LookupError:
             return MISSING_NLTK_DATA_REPLY
 
+        self.document = document
         self.document_name = document.name
         self.index = index
 
         return (
             f"Loaded {document.name} ({len(document.pages)} of "
-            f"{document.page_count} pages have text). Ask me a question about it."
+            f"{document.page_count} pages have text). Ask me a question about it, or ask for a summary."
         )
 
     def respond(self, message: str) -> ChatReply:
@@ -175,7 +175,27 @@ class Chatbot:
                     prediction,
                 )
 
+        if intent == SUMMARY_INTENT:
+            return ChatReply(self._summary_reply(), prediction)
+
         return ChatReply(self._reply_for(intent), prediction)
+
+    def _summary_reply(self) -> str:
+        """Summarize the loaded document, or explain why it cannot be."""
+        if self.document is None:
+            return NO_DOCUMENT_REPLY
+
+        summary = summarize(self.document)
+        if not summary:
+            return NO_SUMMARY_REPLY.format(name=self.document_name)
+
+        lines = [f"Summary of {self.document_name}:"]
+        lines += [
+            f"- {sentence.text} (page {sentence.page_number})"
+            for sentence in summary
+        ]
+
+        return "\n".join(lines)
 
     def _reply_for(self, intent: str) -> str:
         """Choose the reply for an intent that does not search the document."""

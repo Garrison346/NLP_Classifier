@@ -8,7 +8,9 @@ from nlp_classifier.chatbot import (
     MISSING_NLTK_DATA_REPLY,
     NO_DOCUMENT_REPLY,
     NOT_FOUND_REPLY,
+    NO_SUMMARY_REPLY,
     QUESTION_INTENT,
+    SUMMARY_INTENT,
     UNKNOWN_REPLY,
     Chatbot,
     load_responses,
@@ -72,8 +74,8 @@ def test_respond_handles_unknown_intent(monkeypatch):
     assert reply.text == UNKNOWN_REPLY
 
 
-@pytest.mark.parametrize("intent", ["classify_document", "summarize_document"])
-def test_respond_says_unfinished_document_features_are_not_ready(monkeypatch, intent):
+def test_respond_says_document_classification_is_not_ready(monkeypatch):
+    intent = "classify_document"
     reply = make_chatbot(monkeypatch, intent).respond("document request")
 
     assert reply.text == ACTION_REPLIES[intent]
@@ -89,7 +91,9 @@ def test_every_project_intent_has_a_reply():
     _, labels = load_intents(INTENTS_PATH)
     responses = load_responses(INTENTS_PATH)
 
-    assert set(labels) == set(responses) | set(ACTION_REPLIES) | {QUESTION_INTENT}
+    handled = set(responses) | set(ACTION_REPLIES) | {QUESTION_INTENT, SUMMARY_INTENT}
+
+    assert set(labels) == handled
 
 
 # Document questions
@@ -193,3 +197,45 @@ def test_respond_keeps_fixed_replies_when_document_is_loaded(monkeypatch):
 
     assert reply.text in RESPONSES["greeting"]
     assert reply.answer is None
+
+
+# Summaries
+
+
+def test_respond_asks_for_document_before_summarizing(monkeypatch):
+    reply = make_chatbot(monkeypatch, SUMMARY_INTENT).respond("Summarize this")
+
+    assert reply.text == NO_DOCUMENT_REPLY
+
+
+def test_respond_summarizes_loaded_document(monkeypatch):
+    document = make_document(
+        (1, [
+            "The orca is a large and highly social member of the dolphin family.",
+            "Orcas hunt seals, fish, and squid in groups across every ocean.",
+            "Orca families travel together and share hunting skills over generations.",
+        ]),
+    )
+    monkeypatch.setattr(chatbot_module, "process_document", lambda path: document)
+    bot = make_chatbot(monkeypatch, SUMMARY_INTENT)
+    bot.load_document("orcas.pdf")
+
+    reply = bot.respond("Summarize this")
+
+    lines = reply.text.split("\n")
+    assert lines[0] == "Summary of notes.pdf:"
+    assert len(lines) == 4
+    assert lines[1] == (
+        "- The orca is a large and highly social member of the dolphin family. (page 1)"
+    )
+
+
+def test_respond_explains_when_document_is_too_short_to_summarize(monkeypatch):
+    document = make_document((1, ["Too short.", "Also short."]))
+    monkeypatch.setattr(chatbot_module, "process_document", lambda path: document)
+    bot = make_chatbot(monkeypatch, SUMMARY_INTENT)
+    bot.load_document("short.pdf")
+
+    reply = bot.respond("Summarize this")
+
+    assert reply.text == NO_SUMMARY_REPLY.format(name="notes.pdf")

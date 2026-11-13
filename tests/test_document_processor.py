@@ -662,6 +662,23 @@ def test_process_document_returns_passages_with_page_numbers(pdf):
     assert document.passages[1].page_number == 3
 
 
+def test_process_document_lists_each_sentence_once_with_its_page(tmp_path):
+    path = write_pdf(
+        tmp_path / "sentences.pdf",
+        [["One here now. Two here now. Three here now."], ["Four here now."]],
+    )
+
+    document = process_document(path, max_words=6, overlap_sentences=1)
+
+    assert len(document.passages) > 2
+    assert [(s.text, s.page_number) for s in document.sentences] == [
+        ("One here now.", 1),
+        ("Two here now.", 1),
+        ("Three here now.", 1),
+        ("Four here now.", 2),
+    ]
+
+
 def test_process_document_does_not_mix_pages_in_a_passage(tmp_path):
     path = write_pdf(tmp_path / "two.pdf", [["Page one text."], ["Page two text."]])
 

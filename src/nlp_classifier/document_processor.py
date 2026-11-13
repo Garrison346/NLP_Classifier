@@ -12,7 +12,7 @@ import sys
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from nltk.tokenize.punkt import PunktParameters, PunktSentenceTokenizer
@@ -138,6 +138,20 @@ class Passage:
 
 
 @dataclass(frozen=True)
+class Sentence:
+    """
+    One sentence of a document.
+
+    Attributes:
+        text: The sentence text.
+        page_number: The page where the sentence starts.
+    """
+
+    text: str
+    page_number: int
+
+
+@dataclass(frozen=True)
 class Document:
     """
     A processed document.
@@ -147,12 +161,15 @@ class Document:
         page_count: Pages in the file, including those without text.
         pages: Only the pages that contain text.
         passages: Text split into overlapping passages.
+        sentences: Every sentence once, in reading order, unlike passages,
+            which repeat sentences where they overlap.
     """
 
     name: str
     page_count: int
     pages: list[Page]
     passages: list[Passage]
+    sentences: list[Sentence] = field(default_factory=list)
 
 
 def clean_text(text: str) -> str:
@@ -610,14 +627,20 @@ def process_document(
         DocumentError: If the document cannot be processed.
     """
     pages, page_count = extract_pages(path)
+    page_sentences = _split_page_sentences(pages)
 
     passages = [
         Passage(" ".join(group), page_number, tuple(group))
-        for page_number, sentences in _split_page_sentences(pages)
+        for page_number, sentences in page_sentences
         for group in _group_sentences(sentences, max_words, overlap_sentences)
     ]
+    sentences = [
+        Sentence(text, page_number)
+        for page_number, texts in page_sentences
+        for text in texts
+    ]
 
-    return Document(Path(path).name, page_count, pages, passages)
+    return Document(Path(path).name, page_count, pages, passages, sentences)
 
 
 def main(argv: list[str] | None = None) -> int:
